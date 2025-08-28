@@ -14,4 +14,4 @@ jobs:
     - name: Install dependencies
       run: pip install -r requirements.txt || echo "No dependencies"
     - name: Run script
-      run: echo Everething is good!
+      run: python main.py
