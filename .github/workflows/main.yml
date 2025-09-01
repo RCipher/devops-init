@@ -20,6 +20,6 @@ jobs:
     - name: Run tests
       run: pytest -v
     - name: Clean pycache
-      run: |
-      find . -type d -name "__pycache__" -exec rm -r {} +
+      run:
+        find . -type d -name "__pycache__" -exec rm -r {} +
 
