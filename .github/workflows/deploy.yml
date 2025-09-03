@@ -1,31 +1,11 @@
-name: Deploy
+echo "🔹 Подключились к серверу!"
+mkdir -p ~/devops_init/docker-projects
+cd ~/devops_init/docker-projects
 
-on:
-  push:
-    branches: [ main ]
+# Проверяем, есть ли .git, если нет — клонируем репозиторий
+if [ ! -d .git ]; then
+  git clone https://github.com/RCipher/devops-init.git .
+fi
 
-jobs:
-  deploy:
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
-
-      - name: Deploy via SSH
-        uses: appleboy/ssh-action@v0.1.10
-        with:
-          host: ${{ secrets.SERVER_HOST }}
-          port: ${{ secrets.SERVER_PORT }}
-          username: ${{ secrets.SERVER_USER }}
-          key: ${{ secrets.SERVER_SSH_KEY }}
-          script: |
-            echo "🔹 Подключились к серверу!"
-            cd ~/devops_init/docker-projects || exit 1
-            echo "🔹 Тянем свежий код из GitHub..."
-            git pull origin main
-            echo "🔹 Пересобираем и запускаем контейнеры..."
-            docker-compose up -d --build
-            echo "✅ Деплой завершён!"
-          debug: true
-
+echo "🔹 Тянем свежий код из GitHub..."
+git pull origin main
