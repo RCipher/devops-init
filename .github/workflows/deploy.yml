@@ -21,7 +21,7 @@ jobs:
           key: ${{ secrets.SERVER_SSH_KEY }}
           script: |
             echo "🔹 Подключились к серверу!"
-            cd ~/devops_init || exit 1
+            cd ~/devops_init/docker-projects || exit 1
             echo "🔹 Тянем свежий код из GitHub..."
             git pull origin main
             echo "🔹 Пересобираем и запускаем контейнеры..."
