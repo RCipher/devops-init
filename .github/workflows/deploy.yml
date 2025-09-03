@@ -1,30 +1,30 @@
-echo "🔹 Подключились к серверу!"
+name: 🚀 Deploy to Server
 
-# Создаем директорию, если не существует
-mkdir -p ~/devops_init/docker-projects
-cd ~/devops_init/docker-projects
+on:
+  push:
+    branches:
+      - main
 
-# Проверяем, является ли текущая директория git-репозиторием
-if [ ! -d .git ]; then
-  echo "🔹 .git не найден, клонируем репозиторий..."
-  git clone https://github.com/RCipher/devops-init.git .
-else
-  echo "🔹 Репозиторий уже инициализирован."
-fi
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
 
-# Проверяем, нет ли незакоммиченных изменений
-if [ -n "$(git status --porcelain)" ]; then
-  echo "⚠️ Найдены незакоммиченные изменения. Сохраняем их в stash."
-  git stash
-fi
+    steps:
+      - name: ✅ Checkout code
+        uses: actions/checkout@v3
 
-echo "🔹 Тянем свежий код из GitHub..."
-git pull origin main --ff-only
-
-# Проверяем наличие ошибок после pull
-if [ $? -ne 0 ]; then
-  echo "❌ Ошибка при обновлении репозитория!"
-  exit 1
-fi
-
-echo "✅ Репозиторий успешно обновлен!"
+      - name: 🚀 Deploy to server via SSH
+        uses: appleboy/ssh-action@v0.1.10
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          port: ${{ secrets.SERVER_PORT }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          script: |
+            echo "🔹 Подключились к серверу!"
+            cd ~/devops-init || exit 1
+            echo "🔹 Тянем свежий код из GitHub..."
+            git pull origin main
+            echo "🔹 Пересобираем и запускаем контейнеры..."
+            docker-compose up -d --build
+            echo "✅ Деплой завершён!"
