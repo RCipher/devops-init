@@ -1,0 +1,33 @@
+name: 🚀 Deploy to MyPC
+
+on:
+  push:
+    branches:
+      - main   # Триггер — пуш в ветку main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1. Клонируем репозиторий на GitHub runner (нужно, чтобы иметь доступ к коду)
+      - name: Checkout repo
+        uses: actions/checkout@v3
+
+      # 2. Подключаемся по SSH и деплоим
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v0.1.10
+        with:
+          host: ${{ secrets.SERVER_HOST }}       # tcp.cloudpub.ru
+          port: ${{ secrets.SERVER_PORT }}       # 39681
+          username: ${{ secrets.SERVER_USER }}   # твой user
+          key: ${{ secrets.SERVER_SSH_KEY }}     # приватный ключ
+          script: |
+            echo "🔹 Подключились к серверу!"
+            cd ~/devops_start || exit 1
+            echo "🔹 Тянем свежий код из GitHub..."
+            git pull origin main
+            echo "🔹 Пересобираем и запускаем контейнеры..."
+            docker-compose up -d --build
+            echo "✅ Деплой завершён!"
+
