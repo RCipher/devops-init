@@ -1,0 +1,295 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Калькулятор прибыльности аренды e-bike</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <style>
+    :root{
+      --bg:#f6f8fb; --card:#ffffff; --accent:#0f63ff; --muted:#6b7280;
+      --shadow: 0 6px 18px rgba(20,24,40,0.06);
+      font-family: Inter, Roboto, Arial, sans-serif;
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      background:linear-gradient(180deg, #f6f8fb 0%, #eef3ff 100%);
+      color:#0b1220;
+      -webkit-font-smoothing:antialiased;
+      -moz-osx-font-smoothing:grayscale;
+      padding:32px;
+    }
+    .wrap{max-width:1100px;margin:0 auto;display:grid;grid-template-columns:1fr 520px;gap:24px;align-items:start;}
+    header{grid-column:1 / -1;margin-bottom:4px}
+    h1{margin:0;font-size:20px}
+    p.lead{margin:6px 0 18px;color:var(--muted)}
+    .card{background:var(--card);border-radius:12px;padding:18px;box-shadow:var(--shadow)}
+    .form-row{display:flex;gap:12px;margin-bottom:12px}
+    .field{flex:1;display:flex;flex-direction:column}
+    label{font-size:13px;color:var(--muted);margin-bottom:6px}
+    input[type=number]{padding:10px 12px;border-radius:8px;border:1px solid #e6e9ef;font-size:15px}
+    .controls{display:flex;gap:12px;align-items:center;margin-top:8px}
+    button{background:var(--accent);color:#fff;padding:10px 14px;border-radius:10px;border:0;cursor:pointer;font-weight:600}
+    button.ghost{background:transparent;color:var(--accent);border:1px solid rgba(15,99,255,0.12)}
+    .kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:12px}
+    .kpi{background:#fbfdff;padding:12px;border-radius:8px;border:1px solid #f0f4ff}
+    .kpi .v{font-size:18px;font-weight:700}
+    .kpi .s{font-size:12px;color:var(--muted)}
+    canvas{max-width:100%}
+    .small{font-size:13px;color:var(--muted)}
+    footer{grid-column:1 / -1;margin-top:18px;text-align:center;color:var(--muted);font-size:13px}
+    @media (max-width:980px){
+      .wrap{grid-template-columns:1fr; padding:12px}
+      .kpis{grid-template-columns:repeat(2,1fr)}
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <h1>Калькулятор прибыльности аренды электровелосипеда</h1>
+      <p class="lead">Вычисли прибыль, срок окупаемости и посмотри график доходов/расходов/прибыли по месяцам.</p>
+    </header>
+
+    <!-- Left: Form -->
+    <div class="card">
+      <h3>Входные данные</h3>
+
+      <div class="form-row">
+        <div class="field">
+          <label for="price">Стоимость велосипеда (₽)</label>
+          <input id="price" type="number" value="70000" min="0" />
+        </div>
+        <div class="field">
+          <label for="accessories">Аксессуары/трекер (₽)</label>
+          <input id="accessories" type="number" value="10000" min="0" />
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="field">
+          <label for="rent">Аренда в месяц (₽)</label>
+          <input id="rent" type="number" value="7000" min="0" />
+        </div>
+        <div class="field">
+          <label for="costs">Расходы в месяц (₽)</label>
+          <input id="costs" type="number" value="1500" min="0" />
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="field">
+          <label for="n_bikes">Число велосипедов (если считаешь парк)</label>
+          <input id="n_bikes" type="number" value="10" min="1" />
+        </div>
+        <div class="field">
+          <label for="months">Горизонт расчёта (мес)</label>
+          <input id="months" type="number" value="24" min="1" />
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="field">
+          <label for="life">Срок службы (мес)</label>
+          <input id="life" type="number" value="36" min="1" />
+        </div>
+        <div class="field">
+          <label for="theft">Риск утери/кражи (%) в год</label>
+          <input id="theft" type="number" value="5" step="0.1" min="0" />
+        </div>
+      </div>
+
+      <div class="controls">
+        <button id="calcBtn">Рассчитать</button>
+        <button id="resetBtn" class="ghost">Сбросить</button>
+        <button id="csvBtn" class="ghost" title="Скачать прогноз в CSV">Скачать CSV</button>
+      </div>
+
+      <hr style="margin:14px 0;border:none;border-top:1px solid #eef2ff" />
+
+      <div class="small">Формулы: Прибыль в мес = Аренда − Расходы. Окупаемость (мес) = (Стоимость+Аксессуары) / Прибыль мес.</div>
+    </div>
+
+    <!-- Right: Results + Chart -->
+    <div class="card">
+      <h3>Результаты</h3>
+
+      <div class="kpis" id="kpis">
+        <div class="kpi">
+          <div class="v" id="capex">— ₽</div>
+          <div class="s">CAPEX (вкл. акс.)</div>
+        </div>
+        <div class="kpi">
+          <div class="v" id="monthlyProfit">— ₽/мес</div>
+          <div class="s">Прибыль в месяц</div>
+        </div>
+        <div class="kpi">
+          <div class="v" id="payback">— мес</div>
+          <div class="s">Срок окупаемости</div>
+        </div>
+      </div>
+
+      <div style="margin-top:8px;">
+        <canvas id="chart" height="200"></canvas>
+      </div>
+
+      <div style="margin-top:12px;">
+        <details>
+          <summary style="cursor:pointer">Таблица прогнозных значений</summary>
+          <div id="tableWrap" style="margin-top:8px;overflow:auto;max-height:240px"></div>
+        </details>
+      </div>
+    </div>
+
+    <footer>
+      Сделано автоматически — открой файл в браузере. Хочешь добавить экспорт в PDF или вёрстку под твой бренд — скажи.
+    </footer>
+  </div>
+
+  <script>
+    // Элементы
+    const priceEl = document.getElementById('price');
+    const accessoriesEl = document.getElementById('accessories');
+    const rentEl = document.getElementById('rent');
+    const costsEl = document.getElementById('costs');
+    const nBikesEl = document.getElementById('n_bikes');
+    const monthsEl = document.getElementById('months');
+    const lifeEl = document.getElementById('life');
+    const theftEl = document.getElementById('theft');
+
+    const capexEl = document.getElementById('capex');
+    const monthlyProfitEl = document.getElementById('monthlyProfit');
+    const paybackEl = document.getElementById('payback');
+    const tableWrap = document.getElementById('tableWrap');
+
+    const calcBtn = document.getElementById('calcBtn');
+    const resetBtn = document.getElementById('resetBtn');
+    const csvBtn = document.getElementById('csvBtn');
+
+    // Chart setup
+    const ctx = document.getElementById('chart');
+    let chart = null;
+    function createChart(labels, revenue, expenses, profit){
+      if(chart) chart.destroy();
+      chart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: labels,
+          datasets: [
+            { type: 'bar', label: 'Доход', data: revenue, backgroundColor: 'rgba(15,99,255,0.9)' },
+            { type: 'bar', label: 'Расходы', data: expenses, backgroundColor: 'rgba(255,99,132,0.9)' },
+            { type: 'line', label: 'Прибыль', data: profit, borderColor: '#10b981', backgroundColor: 'rgba(16,185,129,0.1)', yAxisID: 'y' }
+          ]
+        },
+        options: {
+          responsive: true,
+          interaction:{mode:'index',intersect:false},
+          scales: {
+            y: { beginAtZero:true, position:'left', title:{display:true,text:'₽'} }
+          },
+          plugins: {legend:{position:'top'}}
+        }
+      });
+    }
+
+    // Calculation logic
+    function calcAll(){
+      const price = Number(priceEl.value)||0;
+      const accessories = Number(accessoriesEl.value)||0;
+      const rent = Number(rentEl.value)||0;
+      const costs = Number(costsEl.value)||0;
+      const nBikes = Math.max(1, Math.floor(Number(nBikesEl.value)||1));
+      const months = Math.max(1, Math.floor(Number(monthsEl.value)||12));
+      const life = Math.max(1, Math.floor(Number(lifeEl.value)||36));
+      const theftPct = Math.max(0, Number(theftEl.value)||0);
+
+      // Unit
+      const capex = price + accessories;
+      const monthlyProfitUnit = rent - costs;
+      const paybackMonths = monthlyProfitUnit > 0 ? (capex / monthlyProfitUnit) : Infinity;
+      const roiPercentYear = monthlyProfitUnit > 0 ? (monthlyProfitUnit * 12 / capex) * 100 : 0;
+
+      capexEl.innerText = capex.toLocaleString('ru-RU') + ' ₽';
+      monthlyProfitEl.innerText = monthlyProfitUnit.toLocaleString('ru-RU') + ' ₽/мес';
+      paybackEl.innerText = isFinite(paybackMonths) ? paybackMonths.toFixed(1) + ' мес' : '— (не окупается)';
+
+      // Fleet and monthly breakdown
+      const labels = [];
+      const revenue = [];
+      const expensesArr = [];
+      const profitArr = [];
+      const depreciationPerMonth = (capex / life);
+      const monthlyTheftProb = (theftPct/100)/12;
+      let remainingBikes = nBikes;
+
+      for(let m=1;m<=months;m++){
+        labels.push('M' + m);
+        const rev = rent * nBikes;
+        const repair = costs * nBikes;
+        const storage = 0; // если захочешь, добавим
+        const admin = 0;
+        // theft cost this month:
+        const lost = remainingBikes * monthlyTheftProb;
+        const theftCost = lost * capex;
+        // (we don't decrement remainingBikes to keep model simple; it's fine for projection)
+        const monthExpenses = repair + storage + admin + depreciationPerMonth * nBikes + theftCost;
+        const monthProfit = rev - monthExpenses;
+        revenue.push(Math.round(rev));
+        expensesArr.push(Math.round(monthExpenses));
+        profitArr.push(Math.round(monthProfit));
+      }
+
+      // Table
+      renderTable(labels, revenue, expensesArr, profitArr);
+
+      // Chart
+      createChart(labels, revenue, expensesArr, profitArr);
+
+      // Save last calculation for CSV
+      window._lastCalc = {labels, revenue, expensesArr, profitArr};
+    }
+
+    function renderTable(labels, rev, exp, profit){
+      let html = '<table style="width:100%;border-collapse:collapse"><thead><tr style="background:#fbfdff"><th style="text-align:left;padding:8px">Месяц</th><th style="text-align:right;padding:8px">Доход (₽)</th><th style="text-align:right;padding:8px">Расходы (₽)</th><th style="text-align:right;padding:8px">Прибыль (₽)</th></tr></thead><tbody>';
+      for(let i=0;i<labels.length;i++){
+        html += `<tr><td style="padding:6px 8px">${labels[i]}</td><td style="padding:6px 8px;text-align:right">${rev[i].toLocaleString('ru-RU')}</td><td style="padding:6px 8px;text-align:right">${exp[i].toLocaleString('ru-RU')}</td><td style="padding:6px 8px;text-align:right">${profit[i].toLocaleString('ru-RU')}</td></tr>`;
+      }
+      html += '</tbody></table>';
+      tableWrap.innerHTML = html;
+    }
+
+    // CSV export
+    function exportCSV(){
+      const d = window._lastCalc;
+      if(!d){ alert('Сначала нажми "Рассчитать".'); return; }
+      let csv = 'month,revenue,expenses,profit\n';
+      for(let i=0;i<d.labels.length;i++){
+        csv += `${d.labels[i]},${d.revenue[i]},${d.expensesArr[i]},${d.profitArr[i]}\n`;
+      }
+      const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'ebike_projection.csv';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    }
+
+    // Buttons
+    calcBtn.addEventListener('click', calcAll);
+    resetBtn.addEventListener('click', ()=>{
+      priceEl.value='70000'; accessoriesEl.value='10000'; rentEl.value='7000';
+      costsEl.value='1500'; nBikesEl.value='10'; monthsEl.value='24'; lifeEl.value='36'; theftEl.value='5';
+      tableWrap.innerHTML=''; if(chart) chart.destroy(); capexEl.innerText='— ₽'; monthlyProfitEl.innerText='— ₽/мес'; paybackEl.innerText='— мес';
+      window._lastCalc = null;
+    });
+    csvBtn.addEventListener('click', exportCSV);
+
+    // Auto-calc on load
+    window.addEventListener('DOMContentLoaded', calcAll);
+  </script>
+</body>
+</html
